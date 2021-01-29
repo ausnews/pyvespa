@@ -1,7 +1,6 @@
 from os import PathLike
 from typing import List, Optional, Union, Mapping, Dict
 
-from torch.nn import Module
 from torch import tensor
 from torch.onnx import export
 from transformers import BertForSequenceClassification, BertTokenizerFast
@@ -148,7 +147,9 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
             )
         return input_ids
 
-    def create_encodings(self, queries: List[str], docs: List[str]) -> Dict:
+    def create_encodings(
+        self, queries: List[str], docs: List[str], return_tensors=False
+    ) -> Dict:
         """
         Create BERT model encodings.
 
@@ -188,6 +189,11 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
             # create attention_mask
             attention_mask.append([1] * number_tokens + [TOKEN_NONE] * padding_length)
 
+        if return_tensors:
+            input_ids = tensor(input_ids)
+            token_type_ids = tensor(token_type_ids)
+            attention_mask = tensor(attention_mask)
+
         encodings = {
             "input_ids": input_ids,
             "token_type_ids": token_type_ids,
@@ -196,15 +202,11 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         return encodings
 
     def _generate_dummy_inputs(self):
-        encodings = self.create_encodings(
+        dummy_input = self.create_encodings(
             queries=["dummy query 1"],
             docs=["dummy document 1"],
+            return_tensors=True
         )
-        dummy_input = {
-            "input_ids": tensor(encodings["input_ids"]),
-            "token_type_ids": tensor(encodings["token_type_ids"]),
-            "attention_mask": tensor(encodings["attention_mask"]),
-        }
         return dummy_input
 
     def export_to_onnx(self, output_path: str) -> None:
