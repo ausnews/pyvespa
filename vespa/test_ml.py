@@ -1,0 +1,84 @@
+import unittest, os
+
+from transformers import BertForSequenceClassification
+from vespa.ml import BertModelConfig
+
+
+class TestBertModelConfigTokenizerOnly(unittest.TestCase):
+    def setUp(self) -> None:
+        self.model_config = BertModelConfig(
+            model_id="bert_tiny",
+            query_input_size=4,
+            doc_input_size=8,
+            tokenizer=os.path.join(os.environ["RESOURCES_DIR"], "bert_tiny_tokenizer"),
+        )
+
+    def test_serialization(self):
+        self.assertEqual(
+            self.model_config, BertModelConfig.from_dict(self.model_config.to_dict)
+        )
+
+    def test_add_model(self):
+        self.assertIsNone(self.model_config.model)
+        self.assertIsNone(self.model_config._model)
+        self.model_config.add_model(
+            model=os.path.join(os.environ["RESOURCES_DIR"], "bert_tiny_model")
+        )
+        self.assertEqual(
+            self.model_config.model,
+            os.path.join(os.environ["RESOURCES_DIR"], "bert_tiny_model"),
+        )
+        self.assertIsInstance(self.model_config._model, BertForSequenceClassification)
+
+    def test_doc_fields(self):
+        self.assertDictEqual(
+            self.model_config.doc_fields(text="this is a test"),
+            {"bert_tiny_doc_token_ids": {"values": [2023, 2003, 1037, 3231, 0, 0, 0]}},
+        )
+
+    def test_query_tensor_mapping(self):
+        self.assertEqual(
+            self.model_config.query_tensor_mapping(text="this is a test"), [2023, 2003]
+        )
+
+    def test_create_encodings(self):
+        self.assertDictEqual(
+            self.model_config.create_encodings(
+                queries=["this is one query", "this is another query"],
+                docs=["this is one document", "this is another document"],
+            ),
+            {
+                "input_ids": [
+                    [101, 2023, 2003, 102, 2023, 2003, 2028, 6254, 102, 0, 0, 0],
+                    [101, 2023, 2003, 102, 2023, 2003, 2178, 6254, 102, 0, 0, 0],
+                ],
+                "token_type_ids": [
+                    [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+                ],
+                "attention_mask": [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+                ],
+            },
+        )
+
+    def test_export_to_onnx(self):
+        with self.assertRaises(ValueError):
+            self.model_config.export_to_onnx(output_path="test_model.onnx")
+
+
+class TestBertModelConfig(unittest.TestCase):
+    def setUp(self) -> None:
+        self.model_config = BertModelConfig(
+            model_id="bert_tiny",
+            query_input_size=4,
+            doc_input_size=8,
+            tokenizer=os.path.join(os.environ["RESOURCES_DIR"], "bert_tiny_tokenizer"),
+            model=os.path.join(os.environ["RESOURCES_DIR"], "bert_tiny_model"),
+        )
+
+    def test_serialization(self):
+        self.assertEqual(
+            self.model_config, BertModelConfig.from_dict(self.model_config.to_dict)
+        )
