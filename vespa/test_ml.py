@@ -1,5 +1,6 @@
 import unittest, os
 
+from torch import tensor, Tensor
 from transformers import BertForSequenceClassification
 from vespa.ml import BertModelConfig
 
@@ -63,6 +64,16 @@ class TestBertModelConfigTokenizerOnly(unittest.TestCase):
             },
         )
 
+    def test_create_encodings_with_tensors(self):
+        encodings = self.model_config.create_encodings(
+            queries=["this is one query", "this is another query"],
+            docs=["this is one document", "this is another document"],
+            return_tensors=True,
+        )
+        self.assertIsInstance(encodings["input_ids"], Tensor)
+        self.assertIsInstance(encodings["token_type_ids"], Tensor)
+        self.assertIsInstance(encodings["attention_mask"], Tensor)
+
     def test_export_to_onnx(self):
         with self.assertRaises(ValueError):
             self.model_config.export_to_onnx(output_path="test_model.onnx")
@@ -82,3 +93,9 @@ class TestBertModelConfig(unittest.TestCase):
         self.assertEqual(
             self.model_config, BertModelConfig.from_dict(self.model_config.to_dict)
         )
+
+    def test_export_to_onnx(self):
+        output_path = "test_model.onnx"
+        self.model_config.export_to_onnx(output_path=output_path)
+        # todo: load with onnx run time and compare with self.model_config.predict(queries = [], docs = [])
+        os.remove(output_path)
