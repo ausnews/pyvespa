@@ -73,6 +73,22 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         if model:
             self.add_model(model=model)
 
+    def predict(self, queries, docs):
+        """
+        Predict (forward pass) given queries and docs texts
+
+        :param queries: A List of query texts.
+        :param docs: A List of document texts.
+        :return: output of the transformer model
+        """
+        if not self._model:
+            raise ValueError("A model needs to be added.")
+        model_output = self._model(
+            **self.create_encodings(queries=queries, docs=docs, return_tensors=True),
+            return_dict=True
+        )
+        return model_output
+
     def _validate_tokenizer(self) -> None:
         dummy_inputs = self._generate_dummy_inputs()
 
@@ -203,9 +219,7 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
 
     def _generate_dummy_inputs(self):
         dummy_input = self.create_encodings(
-            queries=["dummy query 1"],
-            docs=["dummy document 1"],
-            return_tensors=True
+            queries=["dummy query 1"], docs=["dummy document 1"], return_tensors=True
         )
         return dummy_input
 
