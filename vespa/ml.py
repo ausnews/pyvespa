@@ -73,13 +73,13 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         if model:
             self.add_model(model=model)
 
-    def predict(self, queries, docs):
+    def predict(self, queries, docs) -> List:
         """
         Predict (forward pass) given queries and docs texts
 
         :param queries: A List of query texts.
         :param docs: A List of document texts.
-        :return: output of the transformer model
+        :return: A List with logits.
         """
         if not self._model:
             raise ValueError("A model needs to be added.")
@@ -87,7 +87,7 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
             **self.create_encodings(queries=queries, docs=docs, return_tensors=True),
             return_dict=True
         )
-        return model_output
+        return model_output.logits.tolist()
 
     def _validate_tokenizer(self) -> None:
         dummy_inputs = self._generate_dummy_inputs()
