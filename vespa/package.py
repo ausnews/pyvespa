@@ -22,7 +22,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from vespa.json_serialization import ToJson, FromJson
 from vespa.application import Vespa
-from vespa.ml import BertModelConfig
+from vespa.ml import ModelConfig, BertModelConfig
 
 
 class Field(ToJson, FromJson["Field"]):
@@ -895,12 +895,7 @@ class ApplicationPackage(ToJson, FromJson["ApplicationPackage"]):
         self.model_ids = []
         self.model_configs = {}
 
-    def add_bert_ranking(
-        self,
-        model_config: BertModelConfig,
-        doc_token_ids_indexing=None,
-        **kwargs
-    ) -> None:
+    def add_model_ranking(self, model_config: ModelConfig, **kwargs) -> None:
 
         model_id = model_config.model_id
         #
@@ -911,17 +906,22 @@ class ApplicationPackage(ToJson, FromJson["ApplicationPackage"]):
         self.model_ids.append(model_id)
         self.model_configs[model_id] = model_config
 
+        if isinstance(model_config, BertModelConfig):
+            self._add_bert_rank_profile(model_config=model_config, **kwargs)
+        else:
+            raise ValueError("Unknown model configuration type")
+
+    def _add_bert_rank_profile(
+        self, model_config: BertModelConfig, doc_token_ids_indexing=None, **kwargs
+    ) -> None:
+
+        model_id = model_config.model_id
+
         #
-        # Validate and export model
+        # export model
         #
-        if not isinstance(model, BertForSequenceClassification):
-            raise ValueError("We only support BertForSequenceClassification for now.")
-        model_output = model(**model_config._generate_dummy_inputs(), return_dict=True)
-        assert (
-            len(model_output.logits.shape) == 2
-        ), "Model output expected to be logits vector of size 2"
         model_file_path = model_id + ".onnx"
-        model_config.export_to_onnx(model=model, output_path=model_file_path)
+        model_config.export_to_onnx(output_path=model_file_path)
 
         self.schema.add_model(
             OnnxModel(

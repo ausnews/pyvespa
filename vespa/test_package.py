@@ -1,4 +1,4 @@
-import unittest
+import unittest, os
 
 from vespa.package import (
     Field,
@@ -15,6 +15,7 @@ from vespa.package import (
     QueryProfile,
     ApplicationPackage,
 )
+from vespa.ml import ModelConfig, BertModelConfig
 
 
 class TestField(unittest.TestCase):
