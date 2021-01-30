@@ -1,7 +1,10 @@
 import unittest, os
 
+from onnxruntime import InferenceSession
 from torch import tensor, Tensor
 from transformers import BertForSequenceClassification
+from numpy.testing import assert_array_equal
+
 from vespa.ml import BertModelConfig
 
 
@@ -108,8 +111,22 @@ class TestBertModelConfig(unittest.TestCase):
         )
         self.assertEqual(len(prediction.logits.shape), 2)
 
+    def _predict_with_onnx(self, onnx_file_path, model_inputs):
+        os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
+        m = InferenceSession(onnx_file_path)
+        (out,) = m.run(input_feed=model_inputs, output_names=["logits"])
+        return out
+
     def test_export_to_onnx(self):
         output_path = "test_model.onnx"
         self.model_config.export_to_onnx(output_path=output_path)
-        # todo: load with onnx run time and compare with self.model_config.predict(queries = [], docs = [])
+        model_inputs = self.model_config.create_encodings(
+            queries=["this is a query"], docs=["this is a document"]
+        )
+        assert_array_equal(
+            self._predict_with_onnx(output_path, model_inputs),
+            self.model_config.predict(
+                queries=["this is a query"], docs=["this is a document"]
+            ),
+        )
         os.remove(output_path)
