@@ -1,12 +1,22 @@
 from os import PathLike
 from typing import List, Optional, Union, Mapping, Dict
-
-from torch import tensor
-from torch.onnx import export
-from transformers import BertForSequenceClassification, BertTokenizerFast
+from pathlib import Path
+from importlib.util import find_spec
 
 from vespa.json_serialization import ToJson, FromJson
 
+#
+# Optional ML dependencies
+#
+_torch_available = find_spec("torch") is not None
+_transformers_available = find_spec("torch") is not None
+
+if not _torch_available or not _transformers_available:
+    raise Exception("Use pip install pyvespa[ml] to install ml dependencies.")
+else:
+    from torch import tensor
+    from transformers import BertForSequenceClassification, BertTokenizerFast, Pipeline
+    from transformers.convert_graph_to_onnx import convert_pytorch
 
 class ModelConfig(object):
     def __init__(self, model_id) -> None:
@@ -38,7 +48,7 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         ...     query_input_size=32,
         ...     doc_input_size=96,
         ...     tokenizer="google/bert_uncased_L-2_H-128_A-2",
-        ... )
+        ... )  # doctest: +SKIP
         BertModelConfig('pretrained_bert_tiny', 32, 96, 'google/bert_uncased_L-2_H-128_A-2', None)
 
         >>> bert_config = BertModelConfig(
@@ -47,7 +57,7 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         ...     doc_input_size=96,
         ...     tokenizer="google/bert_uncased_L-2_H-128_A-2",
         ...     model="google/bert_uncased_L-2_H-128_A-2",
-        ... )
+        ... )  # doctest: +SKIP
         BertModelConfig('pretrained_bert_tiny', 32, 96, 'google/bert_uncased_L-2_H-128_A-2', 'google/bert_uncased_L-2_H-128_A-2')
         """
         super().__init__(model_id=model_id)
@@ -230,22 +240,11 @@ class BertModelConfig(ModelConfig, ToJson, FromJson["BertModelConfig"]):
         :param output_path: Relative output path for the onnx model, should end in '.onnx'
         :return: None.
         """
+
         if self._model:
-            dummy_input = self._generate_dummy_inputs()
-            input_names = ["input_ids", "token_type_ids", "attention_mask"]
-            output_names = ["logits"]
-            export(
-                self._model,
-                (
-                    dummy_input["input_ids"],
-                    dummy_input["token_type_ids"],
-                    dummy_input["attention_mask"],
-                ),
-                output_path,
-                input_names=input_names,
-                output_names=output_names,
-                verbose=False,
-                opset_version=11,
+            pipeline = Pipeline(model=self._model, tokenizer=self._tokenizer)
+            convert_pytorch(
+                pipeline, opset=11, output=Path(output_path), use_external_format=False
             )
         else:
             raise ValueError("No BERT model found to be exported.")

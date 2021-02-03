@@ -1,9 +1,9 @@
 import unittest, os
 
 from onnxruntime import InferenceSession
-from torch import tensor, Tensor
+from torch import Tensor
 from transformers import BertForSequenceClassification
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_almost_equal
 
 from vespa.ml import BertModelConfig
 
@@ -109,12 +109,16 @@ class TestBertModelConfig(unittest.TestCase):
             queries=["this is one query", "this is another query"],
             docs=["this is one document", "this is another document"],
         )
-        self.assertEqual(len(prediction.logits.shape), 2)
+        self.assertEqual(len(prediction), 2)
+        self.assertEqual(len(prediction[0]), 2)
+        self.assertEqual(len(prediction[1]), 2)
 
     def _predict_with_onnx(self, onnx_file_path, model_inputs):
-        os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
+        os.environ[
+            "KMP_DUPLICATE_LIB_OK"
+        ] = "True"  # required to run on mac https://stackoverflow.com/a/53014308
         m = InferenceSession(onnx_file_path)
-        (out,) = m.run(input_feed=model_inputs, output_names=["logits"])
+        (out,) = m.run(input_feed=model_inputs, output_names=["output_0"])
         return out
 
     def test_export_to_onnx(self):
@@ -123,7 +127,7 @@ class TestBertModelConfig(unittest.TestCase):
         model_inputs = self.model_config.create_encodings(
             queries=["this is a query"], docs=["this is a document"]
         )
-        assert_array_equal(
+        assert_almost_equal(
             self._predict_with_onnx(output_path, model_inputs),
             self.model_config.predict(
                 queries=["this is a query"], docs=["this is a document"]
